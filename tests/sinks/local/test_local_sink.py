@@ -1,6 +1,5 @@
 import os
-from datetime import datetime
-
+import pandas as pd
 import pytest
 from sinks.local.local_sink import LocalSink
 from unittest.mock import patch
@@ -35,3 +34,21 @@ def test_no_data(tmp_path):
     with pytest.raises(ValueError) as ex:
         local_sink = LocalSink(tmp_path, 'unknown_type')
     assert "Unsupported output format: unknown_type" in str(ex.value)
+
+
+def test_transformation(tmp_path, sample_data):
+    def transformation_callback(df):
+        df["new_column"] = 1
+        return df
+
+    filename = "test.csv"
+    local_sink = LocalSink(tmp_path, 'csv', transformation_callback=transformation_callback)
+    local_sink.deliver(sample_data, filename)
+
+    expected_df = pd.DataFrame(sample_data)
+    expected_df["new_column"] = 1
+
+    actual_df = pd.read_csv(os.path.join(tmp_path, filename))
+
+    assert expected_df.shape == actual_df.shape, "DataFrames have different shapes."
+    pd.testing.assert_frame_equal(expected_df, actual_df)

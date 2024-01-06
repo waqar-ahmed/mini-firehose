@@ -1,7 +1,4 @@
 import os
-
-import pandas as pd
-
 from common.handler import Handler
 
 
@@ -33,8 +30,7 @@ class LocalHandler(Handler):
     def _write_data(self, df, file_path):
         raise NotImplementedError("This method should be implemented by subclasses")
 
-    def write(self, data, filename=None):
-        df = pd.DataFrame(data)
+    def write(self, df, filename=None):
         if self.has_partitions:
             for group_name, group_data in df.groupby(self.partition_cols):
                 group_data = group_data.drop(columns=self.partition_cols)

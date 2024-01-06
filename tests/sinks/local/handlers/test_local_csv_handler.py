@@ -2,6 +2,8 @@ import os
 from datetime import datetime
 from unittest.mock import patch
 
+import pandas as pd
+
 from sinks.local.handlers.local_csv_handler import LocalCSVHandler
 import pytest
 
@@ -13,7 +15,7 @@ def local_csv_handler(tmp_path):
 
 @pytest.fixture
 def sample_data():
-    return [
+    data = [
         {'Salesperson': 'Alice', 'Region': 'East', 'SalesAmount': 310},
         {'Salesperson': 'Charlie', 'Region': 'East', 'SalesAmount': 320},
         {'Salesperson': 'Alice', 'Region': 'North', 'SalesAmount': 230},
@@ -23,7 +25,7 @@ def sample_data():
         {'Salesperson': 'Alice', 'Region': 'West', 'SalesAmount': 210},
         {'Salesperson': 'Bob', 'Region': 'West', 'SalesAmount': 200}
     ]
-
+    return pd.DataFrame(data)
 
 @patch("pandas.DataFrame.to_csv")
 def test_to_csv_invocation(mock_to_csv, local_csv_handler, sample_data):
@@ -68,7 +70,7 @@ def test_partitions(mock_to_csv, mock_makedirs, tmp_path, sample_data):
     partition_cols = ['Region']
     local_csv_handler_with_partition_cols = LocalCSVHandler(tmp_path, partition_cols=partition_cols)
     local_csv_handler_with_partition_cols.write(sample_data)
-    all_combinations = set(tuple(entry[col] for col in partition_cols) for entry in sample_data)
+    all_combinations = set(tuple(entry[col] for col in partition_cols) for i, entry in sample_data.iterrows())
     created_directories = {call_args[0][0] for call_args in mock_makedirs.call_args_list}
     expected_directories = [
         os.path.join(local_csv_handler_with_partition_cols._get_directory(), *["{}={}".format(col, val) for col, val in zip(partition_cols, combination)])
@@ -83,7 +85,7 @@ def test_multi_level_partitions(mock_to_csv, mock_makedirs, tmp_path, sample_dat
     partition_cols = ['Region', 'Salesperson']
     local_csv_handler_with_partition_cols = LocalCSVHandler(tmp_path, partition_cols=partition_cols)
     local_csv_handler_with_partition_cols.write(sample_data)
-    all_combinations = set(tuple(entry[col] for col in partition_cols) for entry in sample_data)
+    all_combinations = set(tuple(entry[col] for col in partition_cols) for i, entry in sample_data.iterrows())
     expected_directories = [
         os.path.join(local_csv_handler_with_partition_cols._get_directory(), *["{}={}".format(col, val) for col, val in zip(partition_cols, combination)])
         for combination in all_combinations
@@ -100,7 +102,7 @@ def test_partition_key_not_found(tmp_path, sample_data):
     local_csv_handler.write(sample_data)
 
 
-@pytest.mark.xfail(raises=ValueError)
 def test_no_data(tmp_path):
-    local_csv_handler = LocalCSVHandler(tmp_path)
-    local_csv_handler.write(None)
+    with pytest.raises(AttributeError):
+        local_csv_handler = LocalCSVHandler(tmp_path)
+        local_csv_handler.write(None)

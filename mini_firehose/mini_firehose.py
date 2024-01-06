@@ -107,8 +107,11 @@ class MiniFirehose:
 
 
 if __name__ == "__main__":
+    def my_callback(df):
+        return df
+
     config = FirehoseConfig(buffer_count_limit=10, buffer_time_limit=-1, buffer_size_limit_mb=-1)
-    local_sink = LocalSink("my_test_dir", 'csv')
+    local_sink = LocalSink("my_test_dir", 'csv', transformation_callback=my_callback)
     mini_firehose = MiniFirehose(name="test_firehose", sinks=[local_sink], config=config)
     mini_firehose.start()
     for i in range(1, 21):

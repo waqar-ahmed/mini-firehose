@@ -3,6 +3,7 @@ from datetime import datetime
 from unittest.mock import patch
 
 import botocore
+import pandas as pd
 from botocore.exceptions import ClientError
 from moto import mock_s3
 from sinks.s3.handlers.s3_csv_handler import S3CSVHandler
@@ -30,7 +31,7 @@ def s3_csv_handler():
 
 @pytest.fixture
 def sample_data():
-    return [
+    data = [
         {'Salesperson': 'Alice', 'Region': 'East', 'SalesAmount': 310},
         {'Salesperson': 'Charlie', 'Region': 'East', 'SalesAmount': 320},
         {'Salesperson': 'Alice', 'Region': 'North', 'SalesAmount': 230},
@@ -40,6 +41,7 @@ def sample_data():
         {'Salesperson': 'Alice', 'Region': 'West', 'SalesAmount': 210},
         {'Salesperson': 'Bob', 'Region': 'West', 'SalesAmount': 200}
     ]
+    return pd.DataFrame(data)
 
 
 def list_all_buckets():
@@ -95,7 +97,7 @@ def test_write_partitioned_data_to_s3(mock_datetime, mock_boto, sample_data):
     partition_cols = ["Region"]
     s3_csv_handler = S3CSVHandler(bucket, prefix, partition_cols=partition_cols)
     s3_csv_handler.write(sample_data)
-    all_combinations = set(tuple(entry[col] for col in partition_cols) for entry in sample_data)
+    all_combinations = set(tuple(entry[col] for col in partition_cols) for i, entry in sample_data.iterrows())
     expected_objects = [
         "/".join([s3_csv_handler._get_bucket()] + [s3_csv_handler._get_prefix()] + [f"{col}={val}" for col, val in
                                                                                     zip(partition_cols,
@@ -113,7 +115,7 @@ def test_write_multi_level_partitioned_data_to_s3(mock_datetime, mock_boto, samp
     partition_cols = ["Region", "Salesperson"]
     s3_csv_handler = S3CSVHandler(bucket, prefix, partition_cols=partition_cols)
     s3_csv_handler.write(sample_data)
-    all_combinations = set(tuple(entry[col] for col in partition_cols) for entry in sample_data)
+    all_combinations = set(tuple(entry[col] for col in partition_cols) for i, entry in sample_data.iterrows())
     expected_objects = [
         "/".join([s3_csv_handler._get_bucket()] + [s3_csv_handler._get_prefix()] + [f"{col}={val}" for col, val in
                                                                                     zip(partition_cols,
@@ -131,7 +133,7 @@ def test_partition_key_not_found(mock_boto, sample_data):
     s3_csv_handler.write(sample_data)
 
 
-@pytest.mark.xfail(raises=ValueError)
 def test_no_data(mock_boto):
-    s3_csv_handler = S3CSVHandler(bucket, prefix)
-    s3_csv_handler.write(None)
+    with pytest.raises(AttributeError):
+        s3_csv_handler = S3CSVHandler(bucket, prefix)
+        s3_csv_handler.write(None)
